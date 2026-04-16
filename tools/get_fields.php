@@ -1,8 +1,6 @@
 <?php
-
 require_once($_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php');
 use Bitrix\Main\Loader;
-
 header('Content-Type: application/json; charset=utf-8');
 
 $iblockId = (int)($_POST['iblock_id'] ?? $_GET['iblock_id'] ?? 0);
@@ -17,46 +15,21 @@ if (!Loader::includeModule('iblock') || $iblockId <= 0) {
 $fields = [];
 
 if ($type === 'FIELD') {
-    // Стандартные поля
     if ($objectType === 'ELEMENT') {
-        $standardFields = [
-            'ID' => 'ID',
-            'CODE' => 'Символьный код',
-            'NAME' => 'Название',
-            'DETAIL_PAGE_URL' => 'URL детального просмотра',
-            'PREVIEW_TEXT' => 'Анонс',
-            'DETAIL_TEXT' => 'Детальное описание',
-            'SORT' => 'Сортировка',
-            'ACTIVE' => 'Активность (Y/N)'
-        ];
+        $standard = ['ID', 'CODE', 'NAME', 'DETAIL_PAGE_URL', 'PREVIEW_TEXT', 'DETAIL_TEXT', 'SORT', 'ACTIVE'];
     } else {
-        $standardFields = [
-            'ID' => 'ID',
-            'CODE' => 'Символьный код',
-            'NAME' => 'Название',
-            'SECTION_PAGE_URL' => 'URL раздела',
-            'SORT' => 'Сортировка',
-            'ACTIVE' => 'Активность (Y/N)',
-            'GLOBAL_ACTIVE' => 'Активность с учётом родителей'
-        ];
+        $standard = ['ID', 'CODE', 'NAME', 'SECTION_PAGE_URL', 'SORT', 'ACTIVE', 'GLOBAL_ACTIVE'];
     }
-    foreach ($standardFields as $code => $name) {
-        $fields[] = ['code' => $code, 'name' => $name];
+    foreach ($standard as $code) {
+        $fields[] = ['code' => $code, 'name' => $code];
     }
 } else {
-    // Свойства инфоблока (CIBlockProperty)
-    $properties = \CIBlockProperty::GetList(
-        ['SORT' => 'ASC', 'NAME' => 'ASC'],
-        ['IBLOCK_ID' => $iblockId, 'ACTIVE' => 'Y']
-    );
+    $properties = \CIBlockProperty::GetList(['SORT' => 'ASC', 'NAME' => 'ASC'], ['IBLOCK_ID' => $iblockId, 'ACTIVE' => 'Y']);
     while ($prop = $properties->Fetch()) {
-        if (empty($prop['CODE'])) continue;
-        $fields[] = [
-            'code' => $prop['CODE'],
-            'name' => '[' . $prop['CODE'] . '] ' . $prop['NAME']
-        ];
+        if (!empty($prop['CODE'])) {
+            $fields[] = ['code' => $prop['CODE'], 'name' => '[' . $prop['CODE'] . '] ' . $prop['NAME']];
+        }
     }
 }
-
 echo json_encode(['fields' => $fields]);
 die();

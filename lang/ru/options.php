@@ -37,4 +37,3 @@ $MESS['MLK_DL_DEEPLINK_CODE_MANUAL'] = 'Код поля/свойства для 
 $MESS['MLK_DL_SOURCE_HINT_MANUAL'] = 'Выберите поле или свойство, значение которого будет подставлено в шаблон вместо {source}.';
 $MESS['MLK_DL_DEEPLINK_TEMPLATE'] = 'Формат диплинка (шаблон)';
 $MESS['MLK_DL_DEEPLINK_TEMPLATE_HINT'] = 'Доступные плейсхолдеры: {element_id}, {section_id}, {iblock_id}, {source} (значение выбранного поля/свойства), а также любые из маппинга URL (например, {category}). Пример: /app/product/{source}?id={element_id}';
-?>

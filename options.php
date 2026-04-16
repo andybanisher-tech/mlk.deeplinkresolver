@@ -2,7 +2,6 @@
 
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
-use Bitrix\Main\HttpRequest;
 use Mlk\DeepLinkResolver\Resolver\RuleTable;
 
 $module_id = 'mlk.deeplinkresolver';
@@ -15,7 +14,66 @@ $action = $request->get('action');
 $editId = (int)$request->get('edit');
 $sTableID = 'tbl_rule_list';
 
-// Обработка POST (сохранение правила)
+// ---------- ЭКСПОРТ ----------
+if ($action === 'export' && check_bitrix_sessid()) {
+    $rules = RuleTable::getList(['select' => ['*']])->fetchAll();
+    $exportData = [];
+    foreach ($rules as $rule) {
+        unset($rule['ID'], $rule['CREATED_AT'], $rule['UPDATED_AT']);
+        $exportData[] = $rule;
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    header('Content-Disposition: attachment; filename="deeplink_rules_export.json"');
+    echo json_encode($exportData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    die();
+}
+
+// ---------- ИМПОРТ ----------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import') === 'Y' && check_bitrix_sessid()) {
+    $file = $_FILES['import_file'];
+    if ($file && $file['error'] === UPLOAD_ERR_OK && $file['type'] === 'application/json') {
+        $content = file_get_contents($file['tmp_name']);
+        $data = json_decode($content, true);
+        if (is_array($data)) {
+            $imported = 0;
+            foreach ($data as $ruleData) {
+                if (empty($ruleData['URL_TEMPLATE']) || empty($ruleData['NAME']) || empty($ruleData['IBLOCK_ID'])) {
+                    continue;
+                }
+                $existing = RuleTable::getList(['filter' => ['=NAME' => $ruleData['NAME']], 'limit' => 1])->fetch();
+                $fields = [
+                    'ACTIVE' => $ruleData['ACTIVE'] ?? 'Y',
+                    'SORT' => (int)($ruleData['SORT'] ?? 500),
+                    'NAME' => $ruleData['NAME'],
+                    'URL_TEMPLATE' => $ruleData['URL_TEMPLATE'],
+                    'OBJECT_TYPE' => $ruleData['OBJECT_TYPE'] ?? 'ELEMENT',
+                    'IBLOCK_ID' => (int)$ruleData['IBLOCK_ID'],
+                    'CONTENT_TYPE' => $ruleData['CONTENT_TYPE'],
+                    'DEEPLINK_MODE' => $ruleData['DEEPLINK_MODE'] ?? 'auto',
+                    'DEEPLINK_SOURCE' => $ruleData['DEEPLINK_SOURCE'] ?? 'FIELD',
+                    'DEEPLINK_CODE' => $ruleData['DEEPLINK_CODE'] ?? '',
+                    'DEEPLINK_TEMPLATE' => $ruleData['DEEPLINK_TEMPLATE'] ?? null,
+                    'PLACEHOLDER_MAPPING' => $ruleData['PLACEHOLDER_MAPPING'] ?? '{}',
+                    'UPDATED_AT' => new \Bitrix\Main\Type\DateTime(),
+                ];
+                if ($existing) {
+                    RuleTable::update($existing['ID'], $fields);
+                } else {
+                    $fields['CREATED_AT'] = new \Bitrix\Main\Type\DateTime();
+                    RuleTable::add($fields);
+                }
+                $imported++;
+            }
+            CAdminMessage::ShowMessage(['MESSAGE' => "Импортировано правил: $imported", 'TYPE' => 'OK']);
+        } else {
+            CAdminMessage::ShowMessage(['MESSAGE' => 'Неверный формат JSON', 'TYPE' => 'ERROR']);
+        }
+    } else {
+        CAdminMessage::ShowMessage(['MESSAGE' => 'Ошибка загрузки файла', 'TYPE' => 'ERROR']);
+    }
+}
+
+// ---------- ОБРАБОТКА POST (СОХРАНЕНИЕ ПРАВИЛА) ----------
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && check_bitrix_sessid() && $request->getPost('save') !== null) {
     $editId = (int)$request->getPost('ID');
     $isNew = ($editId <= 0);
@@ -43,7 +101,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && check_bitrix_sessid() && $request->g
     if (is_array($placeholders)) {
         foreach ($placeholders as $idx => $ph) {
             $ph = trim($ph);
-            // Удаляем фигурные скобки, если пользователь их ввёл
             $ph = trim($ph, '{}');
             if ($ph === '') continue;
             $type = isset($sourceTypes[$idx]) ? $sourceTypes[$idx] : 'FIELD';
@@ -63,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && check_bitrix_sessid() && $request->g
     LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANGUAGE_ID);
 }
 
-// Обработка удаления
+// ---------- ОБРАБОТКА УДАЛЕНИЯ ----------
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && $request->get('action') === 'delete' && $editId > 0 && check_bitrix_sessid()) {
     RuleTable::delete($editId);
     LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANGUAGE_ID);
@@ -71,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && $request->get('action') === 'delete' 
 
 $isEdit = ($editId > 0 && $request->get('action') === 'edit') || $request->get('action') === 'new';
 
-// Загрузка данных для редактирования
+// ---------- ЗАГРУЗКА ДАННЫХ ДЛЯ РЕДАКТИРОВАНИЯ ----------
 $ruleData = null;
 $mapping = [];
 if ($editId > 0 && $request->get('action') === 'edit') {
@@ -99,7 +156,6 @@ if ($request->get('action') === 'new') {
     $editId = 0;
 }
 
-// Создание вкладок (только одна вкладка – правила)
 $tabs = [
     ['DIV' => 'rules', 'TAB' => Loc::getMessage('MLK_DL_RULES_TAB'), 'TITLE' => Loc::getMessage('MLK_DL_RULES_TAB_TITLE')],
 ];
@@ -112,12 +168,21 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
 <? $tabControl->BeginNextTab(); ?>
 
 <? if (!$isEdit): ?>
-    <!-- Список правил -->
+    <!-- СПИСОК ПРАВИЛ -->
+    <div style="margin-bottom: 15px;">
+        <input type="button" value="<?=Loc::getMessage('MLK_DL_ADD_RULE')?>" onclick="window.location='<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>&action=new'">
+        <span style="margin-left: 20px;"></span>
+        <input type="button" value="Экспорт правил" onclick="window.location='<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>&action=export&<?=bitrix_sessid_get()?>'">
+        <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
+            <?=bitrix_sessid_post()?>
+            <input type="hidden" name="import" value="Y">
+            <input type="file" name="import_file" accept="application/json" style="display: inline-block; width: auto;">
+            <input type="submit" value="Импортировать правила">
+        </form>
+    </div>
     <?
     $rules = RuleTable::getList(['order' => ['SORT' => 'ASC', 'ID' => 'ASC']])->fetchAll();
     ?>
-    <input type="button" value="<?=Loc::getMessage('MLK_DL_ADD_RULE')?>" onclick="window.location='<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>&action=new'">
-    <br><br>
     <table class="adm-list-table" style="width:100%">
         <thead>
         <tr class="adm-list-table-header">
@@ -158,26 +223,22 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
         </tbody>
     </table>
 <? else: ?>
-    <!-- Форма добавления/редактирования правила -->
+    <!-- ФОРМА РЕДАКТИРОВАНИЯ -->
     <input type="hidden" name="ID" value="<?=$editId?>">
     <input type="hidden" name="save" value="Y">
     <table class="adm-detail-content-table edit-table">
-        <!-- Активность -->
         <tr>
             <td width="40%"><?=Loc::getMessage('MLK_DL_RULE_ACTIVE')?>:</td>
             <td width="60%"><input type="checkbox" name="ACTIVE" value="Y" <?=($ruleData['ACTIVE']=='Y' ? 'checked' : '')?>></td>
         </tr>
-        <!-- Сортировка -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_SORT')?>:</td>
             <td><input type="text" name="SORT" value="<?=$ruleData['SORT']?>" size="5"></td>
         </tr>
-        <!-- Название -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_NAME')?> <span class="required">*</span>:</td>
             <td><input type="text" name="NAME" value="<?=htmlspecialcharsbx($ruleData['NAME'])?>" style="width:100%"></td>
         </tr>
-        <!-- Шаблон URL -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_URL_TEMPLATE')?> <span class="required">*</span>:<br><small><?=Loc::getMessage('MLK_DL_URL_TEMPLATE_HINT')?></small></td>
             <td><input type="text" name="URL_TEMPLATE" value="<?=htmlspecialcharsbx($ruleData['URL_TEMPLATE'])?>" style="width:100%"></td>
@@ -211,7 +272,7 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_OBJECT_TYPE')?>:</td>
             <td>
-                <select name="OBJECT_TYPE">
+                <select name="OBJECT_TYPE" id="object-type-select">
                     <option value="ELEMENT" <?=($ruleData['OBJECT_TYPE']=='ELEMENT' ? 'selected' : '')?>><?=Loc::getMessage('MLK_DL_OBJECT_ELEMENT')?></option>
                     <option value="SECTION" <?=($ruleData['OBJECT_TYPE']=='SECTION' ? 'selected' : '')?>><?=Loc::getMessage('MLK_DL_OBJECT_SECTION')?></option>
                 </select>
@@ -312,9 +373,9 @@ function addMappingRow() {
 function updateFieldSelects() {
     var iblockId = document.getElementById('iblock-select').value;
     var sourceType = document.getElementById('deeplink-source').value;
-    var objectType = document.querySelector('select[name="OBJECT_TYPE"]').value;
+    var objectType = document.getElementById('object-type-select').value;
     // Обновляем select для диплинка
-    loadFieldsForSelect('deeplink-code-select', iblockId, sourceType, objectType, '<?=htmlspecialcharsbx($ruleData['DEEPLINK_CODE'])?>');
+    loadFieldsForSelect('deeplink-code-select', iblockId, sourceType, objectType, '<?=htmlspecialcharsbx($ruleData['DEEPLINK_CODE'] ?? '')?>');
     // Обновляем все select'ы в маппинге
     var mappingSelects = document.querySelectorAll('.field-select');
     mappingSelects.forEach(function(select) {
@@ -392,7 +453,7 @@ document.getElementById('iblock-select').addEventListener('change', function() {
 document.getElementById('deeplink-source').addEventListener('change', function() {
     updateFieldSelects();
 });
-document.querySelector('select[name="OBJECT_TYPE"]').addEventListener('change', function() {
+document.getElementById('object-type-select').addEventListener('change', function() {
     updateFieldSelects();
 });
 document.addEventListener('change', function(e) {
@@ -400,7 +461,7 @@ document.addEventListener('change', function(e) {
         var row = e.target.closest('.mapping-row');
         var select = row.querySelector('.field-select');
         var iblockId = document.getElementById('iblock-select').value;
-        var objectType = document.querySelector('select[name="OBJECT_TYPE"]').value;
+        var objectType = document.getElementById('object-type-select').value;
         var type = e.target.value;
         var currentValue = select.getAttribute('data-current') || '';
         loadFieldsForSelect(select, iblockId, type, objectType, currentValue);
@@ -414,7 +475,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var typeSelect = row.querySelector('select[name="placeholder_source_type[]"]');
         var codeSelect = row.querySelector('.field-select');
         var iblockId = document.getElementById('iblock-select').value;
-        var objectType = document.querySelector('select[name="OBJECT_TYPE"]').value;
+        var objectType = document.getElementById('object-type-select').value;
         var type = typeSelect.value;
         var currentCode = codeSelect.getAttribute('data-current') || codeSelect.value;
         loadFieldsForSelect(codeSelect, iblockId, type, objectType, currentCode);
@@ -422,3 +483,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<?php
+// Локализации (файл lang/ru/options.php должен существовать)
+?>
