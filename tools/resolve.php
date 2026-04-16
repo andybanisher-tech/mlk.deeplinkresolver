@@ -2,9 +2,9 @@
 require_once($_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php');
 use Bitrix\Main\Loader;
 use Bitrix\Main\Context;
-use Mlk\DeepLinkResolver\Api\ResolverController;
+use Mlk\AppDeepLinkResolver\Api\ResolverController;
 
-if (!Loader::includeModule('mlk.deeplinkresolver')) {
+if (!Loader::includeModule('mlk.appdeeplinkresolver')) {
     http_response_code(500);
     header('Content-Type: application/json');
     echo json_encode(['success' => false, 'error' => 'Module not loaded']);

@@ -1,10 +1,10 @@
 <?php
-namespace Mlk\DeepLinkResolver\Api;
+namespace Mlk\AppDeepLinkResolver\Api;
 
 use Bitrix\Main\HttpRequest;
 use Bitrix\Main\HttpResponse;
 use Bitrix\Main\Web\Json;
-use Mlk\DeepLinkResolver\Resolver\ResolverEngine;
+use Mlk\AppDeepLinkResolver\Resolver\ResolverEngine;
 
 class ResolverController
 {
@@ -47,3 +47,4 @@ class ResolverController
         return $response;
     }
 }
+?>

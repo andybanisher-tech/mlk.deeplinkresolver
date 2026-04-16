@@ -2,9 +2,9 @@
 
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
-use Mlk\DeepLinkResolver\Resolver\RuleTable;
+use Mlk\AppDeepLinkResolver\Resolver\RuleTable;
 
-$module_id = 'mlk.deeplinkresolver';
+$module_id = 'mlk.appdeeplinkresolver';
 Loader::includeModule($module_id);
 Loc::loadMessages($_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/options.php');
 Loc::loadMessages(__FILE__);
@@ -398,7 +398,7 @@ function loadFieldsForSelect(selectElement, iblockId, sourceType, objectType, se
         }
         return;
     }
-    var url = '/bitrix/tools/mlk.deeplinkresolver/get_fields.php';
+    var url = '/bitrix/tools/mlk.appdeeplinkresolver/get_fields.php';
     var body = 'iblock_id=' + iblockId + '&type=' + sourceType + '&object_type=' + objectType;
     fetch(url, {
         method: 'POST',
@@ -482,7 +482,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-
 <?php
 // Локализации (файл lang/ru/options.php должен существовать)
 ?>

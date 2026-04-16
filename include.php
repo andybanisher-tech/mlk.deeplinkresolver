@@ -1,7 +1,7 @@
 <?php
 use Bitrix\Main\Loader;
 
-$moduleId = 'mlk.deeplinkresolver';
+$moduleId = 'mlk.appdeeplinkresolver';
 
 Loader::registerAutoLoadClasses($moduleId, [
     'Mlk\\DeepLinkResolver\\Resolver\\Rule' => 'lib/Resolver/Rule.php',
@@ -10,3 +10,4 @@ Loader::registerAutoLoadClasses($moduleId, [
     'Mlk\\DeepLinkResolver\\Resolver\\ResponseBuilder' => 'lib/Resolver/ResponseBuilder.php',
     'Mlk\\DeepLinkResolver\\Api\\ResolverController' => 'lib/Api/ResolverController.php',
 ]);
+?>

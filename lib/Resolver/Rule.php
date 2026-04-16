@@ -1,5 +1,5 @@
 <?php
-namespace Mlk\DeepLinkResolver\Resolver;
+namespace Mlk\AppDeepLinkResolver\Resolver;
 
 class Rule
 {

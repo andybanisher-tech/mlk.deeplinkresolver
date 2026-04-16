@@ -4,13 +4,13 @@ use Bitrix\Main\ModuleManager;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Application;
-use Mlk\DeepLinkResolver\Resolver\RuleTable;
+use Mlk\AppDeepLinkResolver\Resolver\RuleTable;
 
 Loc::loadMessages(__FILE__);
 
-class mlk_deeplinkresolver extends CModule
+class mlk_appdeeplinkresolver extends CModule
 {
-    public $MODULE_ID = 'mlk.deeplinkresolver';
+    public $MODULE_ID = 'mlk.appdeeplinkresolver';
     public $MODULE_VERSION;
     public $MODULE_VERSION_DATE;
     public $MODULE_NAME;
@@ -26,22 +26,17 @@ class mlk_deeplinkresolver extends CModule
         $this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
         $this->MODULE_NAME = Loc::getMessage('MLK_DL_MODULE_NAME');
         $this->MODULE_DESCRIPTION = Loc::getMessage('MLK_DL_MODULE_DESC');
-        $this->PARTNER_NAME = Loc::getMessage('MLK_DL_PARTNER_NAME');
-        $this->PARTNER_URI = 'https://mlk.company';
+        $this->PARTNER_NAME = 'mlk';
+        $this->PARTNER_URI = 'https://www.mirlk.ru';
     }
 
     public function DoInstall()
-    {
-        global $APPLICATION;
-        if (!$this->checkRequirements()) {
-            $APPLICATION->ThrowException(Loc::getMessage('MLK_DL_REQUIREMENTS_FAILED'));
-            return false;
-        }
-        ModuleManager::registerModule($this->MODULE_ID);
-        $this->installDB();
-        $this->installFiles();
-        return true;
-    }
+{
+    $this->InstallFiles();
+    $this->InstallDB();
+      ModuleManager::registerModule($this->MODULE_ID);
+    return true;
+}
 
     public function DoUninstall()
     {
@@ -96,3 +91,4 @@ class mlk_deeplinkresolver extends CModule
         @rmdir($_SERVER['DOCUMENT_ROOT'] . '/bitrix/tools/' . $this->MODULE_ID);
     }
 }
+?>
