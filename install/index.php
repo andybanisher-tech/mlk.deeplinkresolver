@@ -18,17 +18,17 @@ class mlk_dlresolver extends CModule
     public $PARTNER_NAME;
     public $PARTNER_URI;
 
-    public function __construct()
-    {
-        $arModuleVersion = [];
-        include __DIR__ . '/version.php';
-        $this->MODULE_VERSION = $arModuleVersion['VERSION'];
-        $this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
-        $this->MODULE_NAME = Loc::getMessage('MLK_DLR_MODULE_NAME');
-        $this->MODULE_DESCRIPTION = Loc::getMessage('MLK_DLR_MODULE_DESC');
-        $this->PARTNER_NAME = Loc::getMessage('MLK_DLR_PARTNER_NAME');
-        $this->PARTNER_URI = 'https://mlk.company';
-    }
+   public function __construct()
+{
+    $arModuleVersion = [];
+    include __DIR__ . '/version.php';
+    $this->MODULE_VERSION = $arModuleVersion['VERSION'];
+    $this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
+    $this->MODULE_NAME = "МЛК DeepLink Resolver";
+    $this->MODULE_DESCRIPTION = "Модуль для преобразования URL в диплинки";
+    $this->PARTNER_NAME = "mlk";
+    $this->PARTNER_URI = "https://www.mirlk.ru";
+}
 
     public function DoInstall()
     {
