@@ -1,5 +1,5 @@
 <?php
-namespace Mlk\AppDeepLinkResolver\Resolver;
+namespace Mlk\DlResolver\Resolver;
 
 use Bitrix\Main\ORM\Data\DataManager;
 use Bitrix\Main\ORM\Fields;
@@ -9,7 +9,7 @@ class RuleTable extends DataManager
 {
     public static function getTableName()
     {
-        return 'mlk_appdeeplink_resolver_rule';
+        return 'mlk_dlresolver_rule';
     }
 
     public static function getMap()

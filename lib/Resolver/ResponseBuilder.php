@@ -1,6 +1,6 @@
 <?php
 
-namespace Mlk\AppDeepLinkResolver\Resolver;
+namespace Mlk\DlResolver\Resolver;
 
 use Bitrix\Main\Web\Json;
 

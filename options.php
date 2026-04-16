@@ -2,9 +2,9 @@
 
 use Bitrix\Main\Loader;
 use Bitrix\Main\Localization\Loc;
-use Mlk\AppDeepLinkResolver\Resolver\RuleTable;
+use Mlk\DlResolver\Resolver\RuleTable;
 
-$module_id = 'mlk.appdeeplinkresolver';
+$module_id = 'mlk.dlresolver';
 Loader::includeModule($module_id);
 Loc::loadMessages($_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/options.php');
 Loc::loadMessages(__FILE__);
@@ -398,7 +398,7 @@ function loadFieldsForSelect(selectElement, iblockId, sourceType, objectType, se
         }
         return;
     }
-    var url = '/bitrix/tools/mlk.appdeeplinkresolver/get_fields.php';
+    var url = '/bitrix/tools/mlk.dlresolver/get_fields.php';
     var body = 'iblock_id=' + iblockId + '&type=' + sourceType + '&object_type=' + objectType;
     fetch(url, {
         method: 'POST',

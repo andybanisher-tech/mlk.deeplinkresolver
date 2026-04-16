@@ -1,4 +1,8 @@
 <?php
+/**
+ * DeepLink Resolver модуль
+ * Получение списка полей и свойств инфоблока
+ */
 require_once($_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php');
 use Bitrix\Main\Loader;
 header('Content-Type: application/json; charset=utf-8');

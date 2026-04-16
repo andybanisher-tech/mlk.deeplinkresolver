@@ -1,4 +1,4 @@
 <?php
-$mlk_appdeeplinkresolver_default_option = [
+$mlk_dlresolver_default_option = [
 
 ];

@@ -1,4 +1,4 @@
-# DeepLink Resolver (mlk.appdeeplinkresolver)
+# DeepLink Resolver (mlk.dlresolver)
 
 Модуль для 1С-Битрикс «Управление сайтом» позволяет настраивать правила преобразования публичных URL сайта в диплинки для мобильных приложений или внешних систем.
 
@@ -74,7 +74,7 @@
 
 ## Использование API
 
-Эндпоинт: `/bitrix/tools/mlk.appdeeplinkresolver/resolve.php`
+Эндпоинт: `/bitrix/tools/mlk.dlresolver/resolve.php`
 
 ### Параметры
 
@@ -86,5 +86,5 @@
 ### Пример запроса
 
 ```bash
-curl -X POST "https://ваш-сайт.ru/bitrix/tools/mlk.appdeeplinkresolver/resolve.php" \
+curl -X POST "https://ваш-сайт.ru/bitrix/tools/mlk.dlresolver/resolve.php" \
   -d "url=/catalog/socolor-pre-bonded-90-ml.html&debug=1"

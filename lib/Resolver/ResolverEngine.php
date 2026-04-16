@@ -1,5 +1,5 @@
 <?php
-namespace Mlk\AppDeepLinkResolver\Resolver;
+namespace Mlk\DlResolver\Resolver;
 
 use Bitrix\Main\Loader;
 use CIBlockElement;

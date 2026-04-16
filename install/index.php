@@ -4,13 +4,13 @@ use Bitrix\Main\ModuleManager;
 use Bitrix\Main\Config\Option;
 use Bitrix\Main\Loader;
 use Bitrix\Main\Application;
-use Mlk\AppDeepLinkResolver\Resolver\RuleTable;
+use Mlk\DlResolver\Resolver\RuleTable;
 
 Loc::loadMessages(__FILE__);
 
-class mlk_appdeeplinkresolver extends CModule
+class mlk_dlresolver extends CModule
 {
-    public $MODULE_ID = 'mlk.appdeeplinkresolver';
+    public $MODULE_ID = 'mlk.dlresolver';
     public $MODULE_VERSION;
     public $MODULE_VERSION_DATE;
     public $MODULE_NAME;
@@ -62,6 +62,10 @@ class mlk_appdeeplinkresolver extends CModule
     private function installDB()
     {
         Loader::includeModule($this->MODULE_ID);
+        $connection = Application::getConnection();
+        if ($connection->isTableExists('mlk_appdeeplink_resolver_rule')) {
+            $connection->renameTable('mlk_appdeeplink_resolver_rule', 'mlk_dlresolver_rule');
+        }
         if (!RuleTable::getEntity()->getConnection()->isTableExists(RuleTable::getTableName())) {
             RuleTable::getEntity()->createDbTable();
         }
