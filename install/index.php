@@ -24,19 +24,24 @@ class mlk_dlresolver extends CModule
         include __DIR__ . '/version.php';
         $this->MODULE_VERSION = $arModuleVersion['VERSION'];
         $this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
-        $this->MODULE_NAME = Loc::getMessage('MLK_DL_MODULE_NAME');
-        $this->MODULE_DESCRIPTION = Loc::getMessage('MLK_DL_MODULE_DESC');
-        $this->PARTNER_NAME = 'mlk';
-        $this->PARTNER_URI = 'https://www.mirlk.ru';
+        $this->MODULE_NAME = Loc::getMessage('MLK_DLR_MODULE_NAME');
+        $this->MODULE_DESCRIPTION = Loc::getMessage('MLK_DLR_MODULE_DESC');
+        $this->PARTNER_NAME = Loc::getMessage('MLK_DLR_PARTNER_NAME');
+        $this->PARTNER_URI = 'https://mlk.company';
     }
 
     public function DoInstall()
-{
-    $this->InstallFiles();
-    $this->InstallDB();
-      ModuleManager::registerModule($this->MODULE_ID);
-    return true;
-}
+    {
+        global $APPLICATION;
+        if (!$this->checkRequirements()) {
+            $APPLICATION->ThrowException(Loc::getMessage('MLK_DLR_REQUIREMENTS_FAILED'));
+            return false;
+        }
+        ModuleManager::registerModule($this->MODULE_ID);
+        $this->installDB();
+        $this->installFiles();
+        return true;
+    }
 
     public function DoUninstall()
     {
@@ -55,24 +60,25 @@ class mlk_dlresolver extends CModule
     {
         if (!Loader::includeModule('main')) return false;
         if (!Loader::includeModule('iblock')) return false;
-        if (version_compare(SM_VERSION, '20.0.0', '<')) return false; // минимальная версия
+        if (version_compare(SM_VERSION, '20.0.0', '<')) return false;
         return true;
     }
 
-    private function installDB()
+    // ВСЕ МЕТОДЫ НИЖЕ ДОЛЖНЫ БЫТЬ PUBLIC
+    public function installDB()
     {
         Loader::includeModule($this->MODULE_ID);
         $connection = Application::getConnection();
+        // Миграция старой таблицы, если есть
         if ($connection->isTableExists('mlk_appdeeplink_resolver_rule')) {
             $connection->renameTable('mlk_appdeeplink_resolver_rule', 'mlk_dlresolver_rule');
-        }
-        if (!RuleTable::getEntity()->getConnection()->isTableExists(RuleTable::getTableName())) {
+        } elseif (!RuleTable::getEntity()->getConnection()->isTableExists(RuleTable::getTableName())) {
             RuleTable::getEntity()->createDbTable();
         }
         Option::set($this->MODULE_ID, 'db_version', $this->MODULE_VERSION);
     }
 
-    private function uninstallDB()
+    public function uninstallDB()
     {
         Loader::includeModule($this->MODULE_ID);
         $connection = RuleTable::getEntity()->getConnection();
@@ -82,17 +88,16 @@ class mlk_dlresolver extends CModule
         Option::delete($this->MODULE_ID);
     }
 
-    private function installFiles()
+    public function installFiles()
     {
         CopyDirFiles(__DIR__ . '/../admin', $_SERVER['DOCUMENT_ROOT'] . '/bitrix/admin', true, true);
         CopyDirFiles(__DIR__ . '/../tools', $_SERVER['DOCUMENT_ROOT'] . '/bitrix/tools/' . $this->MODULE_ID, true, true);
     }
 
-    private function uninstallFiles()
+    public function uninstallFiles()
     {
         DeleteDirFiles(__DIR__ . '/../admin', $_SERVER['DOCUMENT_ROOT'] . '/bitrix/admin');
         DeleteDirFiles($_SERVER['DOCUMENT_ROOT'] . '/bitrix/tools/' . $this->MODULE_ID, $_SERVER['DOCUMENT_ROOT'] . '/bitrix/tools/' . $this->MODULE_ID);
         @rmdir($_SERVER['DOCUMENT_ROOT'] . '/bitrix/tools/' . $this->MODULE_ID);
     }
 }
-?>
