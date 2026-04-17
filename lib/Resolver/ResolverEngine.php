@@ -110,13 +110,42 @@ class ResolverEngine
         if ($debug) $this->debug['last_filter'] = $filter;
 
         $objectId = null;
+
         if ($objectType === 'ELEMENT') {
-            $element = CIBlockElement::GetList([], $filter, false, ['nTopCount' => 1], ['ID'])->Fetch();
+            // Поиск элемента
+            $element = CIBlockElement::GetList(
+                [],
+                $filter,
+                false,
+                ['nTopCount' => 1, 'CHECK_PERMISSIONS' => 'N'],
+                ['ID']
+            )->Fetch();
             if ($element) $objectId = $element['ID'];
         } else {
-            $section = CIBlockSection::GetList([], $filter, false, ['ID'], ['nTopCount' => 1])->Fetch();
+            // Поиск раздела – убираем свойства (они не работают для разделов)
+            $sectionFilter = [];
+            foreach ($filter as $key => $value) {
+                if (strpos($key, 'PROPERTY_') === 0) continue;
+                $sectionFilter[$key] = $value;
+            }
+            // Делаем поиск по CODE регистронезависимым
+            if (isset($sectionFilter['=CODE'])) {
+    $codeValue = $sectionFilter['=CODE'];
+    unset($sectionFilter['=CODE']);
+    $sectionFilter['CODE'] = $codeValue; // точное совпадение
+}
+            if ($debug) $this->debug['section_filter'] = $sectionFilter;
+
+            $section = CIBlockSection::GetList(
+                [],
+                $sectionFilter,
+                false,
+                ['ID'],
+                ['nTopCount' => 1, 'CHECK_PERMISSIONS' => 'N', 'ACTIVE' => 'ALL']
+            )->Fetch();
             if ($section) $objectId = $section['ID'];
         }
+
         if ($debug) {
             if ($objectId) $this->debug['last_object_id'] = $objectId;
             else $this->debug['object_not_found'] = true;
