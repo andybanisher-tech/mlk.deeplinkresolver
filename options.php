@@ -14,7 +14,7 @@ $action = $request->get('action');
 $editId = (int)$request->get('edit');
 $sTableID = 'tbl_rule_list';
 
-// ---------- ЭКСПОРТ ----------
+// ---------- ЭКСПОРТ (GET) ----------
 if ($action === 'export' && check_bitrix_sessid()) {
     $rules = RuleTable::getList(['select' => ['*']])->fetchAll();
     $exportData = [];
@@ -28,7 +28,7 @@ if ($action === 'export' && check_bitrix_sessid()) {
     die();
 }
 
-// ---------- ИМПОРТ ----------
+// ---------- ИМПОРТ (POST) ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import') === 'Y' && check_bitrix_sessid()) {
     $file = $_FILES['import_file'];
     if ($file && $file['error'] === UPLOAD_ERR_OK && $file['type'] === 'application/json') {
@@ -71,6 +71,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import') === 'Y'
     } else {
         CAdminMessage::ShowMessage(['MESSAGE' => 'Ошибка загрузки файла', 'TYPE' => 'ERROR']);
     }
+}
+
+// ---------- УДАЛЕНИЕ ЧЕРЕЗ POST (НОВЫЙ МЕТОД) ----------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('delete_rule') === 'Y' && $editId > 0 && check_bitrix_sessid()) {
+    RuleTable::delete($editId);
+    LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANGUAGE_ID);
 }
 
 // ---------- ОБРАБОТКА POST (СОХРАНЕНИЕ ПРАВИЛА) ----------
@@ -120,15 +126,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && check_bitrix_sessid() && $request->g
     LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANGUAGE_ID);
 }
 
-// ---------- ОБРАБОТКА УДАЛЕНИЯ ----------
-if ($_SERVER['REQUEST_METHOD'] == 'GET' && $request->get('action') === 'delete' && $editId > 0 && check_bitrix_sessid()) {
-    RuleTable::delete($editId);
-    LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANGUAGE_ID);
-}
-
 $isEdit = ($editId > 0 && $request->get('action') === 'edit') || $request->get('action') === 'new';
 
-// ---------- ЗАГРУЗКА ДАННЫХ ДЛЯ РЕДАКТИРОВАНИЯ ----------
+// Загрузка данных для редактирования
 $ruleData = null;
 $mapping = [];
 if ($editId > 0 && $request->get('action') === 'edit') {
@@ -213,7 +213,13 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
                 <td class="adm-list-table-cell">
                     <a href="<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>&edit=<?=$rule['ID']?>&action=edit"><?=Loc::getMessage('MLK_DL_EDIT')?></a>
                     &nbsp;|&nbsp;
-                    <a href="<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>&edit=<?=$rule['ID']?>&action=delete" onclick="return confirm('<?=Loc::getMessage('MLK_DL_CONFIRM_DELETE')?>')"><?=Loc::getMessage('MLK_DL_DELETE')?></a>
+                    <!-- POST-форма для удаления -->
+                    <form method="post" style="display:inline;" onsubmit="return confirm('<?=Loc::getMessage('MLK_DL_CONFIRM_DELETE')?>')">
+                        <?=bitrix_sessid_post()?>
+                        <input type="hidden" name="delete_rule" value="Y">
+                        <input type="hidden" name="edit" value="<?=$rule['ID']?>">
+                        <input type="submit" value="<?=Loc::getMessage('MLK_DL_DELETE')?>" style="background:none; border:none; color:red; cursor:pointer; padding:0; margin:0;">
+                    </form>
                 </td>
             </tr>
         <? endforeach; ?>
@@ -227,18 +233,22 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
     <input type="hidden" name="ID" value="<?=$editId?>">
     <input type="hidden" name="save" value="Y">
     <table class="adm-detail-content-table edit-table">
+        <!-- Активность -->
         <tr>
             <td width="40%"><?=Loc::getMessage('MLK_DL_RULE_ACTIVE')?>:</td>
             <td width="60%"><input type="checkbox" name="ACTIVE" value="Y" <?=($ruleData['ACTIVE']=='Y' ? 'checked' : '')?>></td>
         </tr>
+        <!-- Сортировка -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_SORT')?>:</td>
             <td><input type="text" name="SORT" value="<?=$ruleData['SORT']?>" size="5"></td>
         </tr>
+        <!-- Название -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_NAME')?> <span class="required">*</span>:</td>
             <td><input type="text" name="NAME" value="<?=htmlspecialcharsbx($ruleData['NAME'])?>" style="width:100%"></td>
         </tr>
+        <!-- Шаблон URL -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_URL_TEMPLATE')?> <span class="required">*</span>:<br><small><?=Loc::getMessage('MLK_DL_URL_TEMPLATE_HINT')?></small></td>
             <td><input type="text" name="URL_TEMPLATE" value="<?=htmlspecialcharsbx($ruleData['URL_TEMPLATE'])?>" style="width:100%"></td>
@@ -306,7 +316,7 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
                 <label><input type="radio" name="DEEPLINK_MODE" value="manual" <?=($ruleData['DEEPLINK_MODE']=='manual'?'checked':'')?> onchange="toggleDeeplinkMode()"> <?=Loc::getMessage('MLK_DL_MODE_MANUAL')?></label>
             </td>
         </tr>
-        <!-- Блок выбора поля/свойства (общий для обоих режимов, подписи меняются) -->
+        <!-- Блок выбора поля/свойства (общий) -->
         <tbody id="source-block">
         <tr>
             <td id="source-label"><?=Loc::getMessage('MLK_DL_DEEPLINK_SOURCE_AUTO')?>:</td>
@@ -331,7 +341,7 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
             </td>
         </tr>
         </tbody>
-        <!-- Блок шаблона диплинка (только для ручного режима) -->
+        <!-- Блок шаблона диплинка (ручной режим) -->
         <tbody id="manual-template-block" style="display:none;">
         <tr>
             <td valign="top"><?=Loc::getMessage('MLK_DL_DEEPLINK_TEMPLATE')?> <span class="required">*</span>:<br><small><?=Loc::getMessage('MLK_DL_DEEPLINK_TEMPLATE_HINT')?></small></td>
@@ -374,9 +384,7 @@ function updateFieldSelects() {
     var iblockId = document.getElementById('iblock-select').value;
     var sourceType = document.getElementById('deeplink-source').value;
     var objectType = document.getElementById('object-type-select').value;
-    // Обновляем select для диплинка
     loadFieldsForSelect('deeplink-code-select', iblockId, sourceType, objectType, '<?=htmlspecialcharsbx($ruleData['DEEPLINK_CODE'] ?? '')?>');
-    // Обновляем все select'ы в маппинге
     var mappingSelects = document.querySelectorAll('.field-select');
     mappingSelects.forEach(function(select) {
         var row = select.closest('.mapping-row');
@@ -433,7 +441,6 @@ function toggleDeeplinkMode() {
     var sourceLabel = document.getElementById('source-label');
     var codeLabel = document.getElementById('code-label');
     var sourceHint = document.getElementById('source-hint');
-
     if (mode === 'auto') {
         templateBlock.style.display = 'none';
         sourceLabel.innerHTML = '<?=Loc::getMessage('MLK_DL_DEEPLINK_SOURCE_AUTO')?>:';
@@ -482,6 +489,3 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-<?php
-// Локализации (файл lang/ru/options.php должен существовать)
-?>
