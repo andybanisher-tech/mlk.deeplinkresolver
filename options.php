@@ -28,7 +28,7 @@ if ($action === 'export' && check_bitrix_sessid()) {
     die();
 }
 
-// ---------- ОБРАБОТКА ИМПОРТА (POST, внутри основной формы) ----------
+// ---------- ИМПОРТ (POST) ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import_action') === 'Y' && check_bitrix_sessid()) {
     $file = $_FILES['import_file'];
     if ($file['error'] !== UPLOAD_ERR_OK) {
@@ -43,10 +43,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import_action') 
             $updated = 0;
             $errors = 0;
             foreach ($data as $ruleData) {
-                if (empty($ruleData['URL_TEMPLATE']) || empty($ruleData['NAME']) || empty($ruleData['IBLOCK_ID'])) {
+                // Проверяем обязательные поля: URL_TEMPLATE и NAME
+                if (empty($ruleData['URL_TEMPLATE']) || empty($ruleData['NAME'])) {
                     $errors++;
                     continue;
                 }
+                // IBLOCK_ID должен быть числом (допускается 0, если нет привязки к инфоблоку)
+                if (!isset($ruleData['IBLOCK_ID']) || !is_numeric($ruleData['IBLOCK_ID'])) {
+                    $errors++;
+                    continue;
+                }
+                $iblockId = (int)$ruleData['IBLOCK_ID'];
+                
                 $existing = RuleTable::getList(['filter' => ['=NAME' => $ruleData['NAME']], 'limit' => 1])->fetch();
                 $fields = [
                     'ACTIVE' => $ruleData['ACTIVE'] ?? 'Y',
@@ -54,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import_action') 
                     'NAME' => $ruleData['NAME'],
                     'URL_TEMPLATE' => $ruleData['URL_TEMPLATE'],
                     'OBJECT_TYPE' => $ruleData['OBJECT_TYPE'] ?? 'ELEMENT',
-                    'IBLOCK_ID' => (int)$ruleData['IBLOCK_ID'],
+                    'IBLOCK_ID' => $iblockId,
                     'CONTENT_TYPE' => $ruleData['CONTENT_TYPE'],
                     'DEEPLINK_MODE' => $ruleData['DEEPLINK_MODE'] ?? 'auto',
                     'DEEPLINK_SOURCE' => $ruleData['DEEPLINK_SOURCE'] ?? 'FIELD',
