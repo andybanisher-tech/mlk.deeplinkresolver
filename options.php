@@ -28,16 +28,23 @@ if ($action === 'export' && check_bitrix_sessid()) {
     die();
 }
 
-// ---------- ИМПОРТ (POST) ----------
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import') === 'Y' && check_bitrix_sessid()) {
+// ---------- ОБРАБОТКА ИМПОРТА (POST, внутри основной формы) ----------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import_action') === 'Y' && check_bitrix_sessid()) {
     $file = $_FILES['import_file'];
-    if ($file && $file['error'] === UPLOAD_ERR_OK && $file['type'] === 'application/json') {
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        CAdminMessage::ShowMessage(['MESSAGE' => 'Ошибка загрузки файла (код: ' . $file['error'] . ')', 'TYPE' => 'ERROR']);
+    } else {
         $content = file_get_contents($file['tmp_name']);
         $data = json_decode($content, true);
-        if (is_array($data)) {
+        if (!is_array($data)) {
+            CAdminMessage::ShowMessage(['MESSAGE' => 'Неверный формат JSON', 'TYPE' => 'ERROR']);
+        } else {
             $imported = 0;
+            $updated = 0;
+            $errors = 0;
             foreach ($data as $ruleData) {
                 if (empty($ruleData['URL_TEMPLATE']) || empty($ruleData['NAME']) || empty($ruleData['IBLOCK_ID'])) {
+                    $errors++;
                     continue;
                 }
                 $existing = RuleTable::getList(['filter' => ['=NAME' => $ruleData['NAME']], 'limit' => 1])->fetch();
@@ -58,22 +65,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('import') === 'Y'
                 ];
                 if ($existing) {
                     RuleTable::update($existing['ID'], $fields);
+                    $updated++;
                 } else {
                     $fields['CREATED_AT'] = new \Bitrix\Main\Type\DateTime();
                     RuleTable::add($fields);
+                    $imported++;
                 }
-                $imported++;
             }
-            CAdminMessage::ShowMessage(['MESSAGE' => "Импортировано правил: $imported", 'TYPE' => 'OK']);
-        } else {
-            CAdminMessage::ShowMessage(['MESSAGE' => 'Неверный формат JSON', 'TYPE' => 'ERROR']);
+            CAdminMessage::ShowMessage(['MESSAGE' => "Импорт завершён: добавлено $imported, обновлено $updated, ошибок $errors", 'TYPE' => 'OK']);
         }
-    } else {
-        CAdminMessage::ShowMessage(['MESSAGE' => 'Ошибка загрузки файла', 'TYPE' => 'ERROR']);
     }
 }
 
-// ---------- УДАЛЕНИЕ ЧЕРЕЗ POST (НОВЫЙ МЕТОД) ----------
+// ---------- УДАЛЕНИЕ ЧЕРЕЗ POST (внутри основной формы) ----------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $request->getPost('delete_rule') === 'Y' && $editId > 0 && check_bitrix_sessid()) {
     RuleTable::delete($editId);
     LocalRedirect($APPLICATION->GetCurPage() . '?mid=' . $module_id . '&lang=' . LANGUAGE_ID);
@@ -162,7 +166,7 @@ $tabs = [
 $tabControl = new CAdminTabControl('tabControl', $tabs);
 
 ?>
-<form method="post" action="<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>">
+<form method="post" enctype="multipart/form-data" action="<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>">
 <?=bitrix_sessid_post()?>
 <? $tabControl->Begin(); ?>
 <? $tabControl->BeginNextTab(); ?>
@@ -173,12 +177,6 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
         <input type="button" value="<?=Loc::getMessage('MLK_DL_ADD_RULE')?>" onclick="window.location='<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>&action=new'">
         <span style="margin-left: 20px;"></span>
         <input type="button" value="Экспорт правил" onclick="window.location='<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>&action=export&<?=bitrix_sessid_get()?>'">
-        <form method="post" enctype="multipart/form-data" style="display: inline-block; margin-left: 10px;">
-            <?=bitrix_sessid_post()?>
-            <input type="hidden" name="import" value="Y">
-            <input type="file" name="import_file" accept="application/json" style="display: inline-block; width: auto;">
-            <input type="submit" value="Импортировать правила">
-        </form>
     </div>
     <?
     $rules = RuleTable::getList(['order' => ['SORT' => 'ASC', 'ID' => 'ASC']])->fetchAll();
@@ -213,7 +211,6 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
                 <td class="adm-list-table-cell">
                     <a href="<?=$APPLICATION->GetCurPage()?>?mid=<?=urlencode($module_id)?>&lang=<?=LANGUAGE_ID?>&edit=<?=$rule['ID']?>&action=edit"><?=Loc::getMessage('MLK_DL_EDIT')?></a>
                     &nbsp;|&nbsp;
-                    <!-- POST-форма для удаления -->
                     <form method="post" style="display:inline;" onsubmit="return confirm('<?=Loc::getMessage('MLK_DL_CONFIRM_DELETE')?>')">
                         <?=bitrix_sessid_post()?>
                         <input type="hidden" name="delete_rule" value="Y">
@@ -228,32 +225,36 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
         <? endif; ?>
         </tbody>
     </table>
+
+    <!-- Блок импорта (внутри основной формы) -->
+    <div style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9;">
+        <strong>Импорт правил</strong><br>
+        <input type="hidden" name="import_action" value="Y">
+        <input type="file" name="import_file" accept="application/json">
+        <input type="submit" value="Загрузить и импортировать" onclick="return confirm('Импорт заменит правила с совпадающими именами?')">
+    </div>
+
 <? else: ?>
     <!-- ФОРМА РЕДАКТИРОВАНИЯ -->
     <input type="hidden" name="ID" value="<?=$editId?>">
     <input type="hidden" name="save" value="Y">
     <table class="adm-detail-content-table edit-table">
-        <!-- Активность -->
         <tr>
             <td width="40%"><?=Loc::getMessage('MLK_DL_RULE_ACTIVE')?>:</td>
             <td width="60%"><input type="checkbox" name="ACTIVE" value="Y" <?=($ruleData['ACTIVE']=='Y' ? 'checked' : '')?>></td>
         </tr>
-        <!-- Сортировка -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_SORT')?>:</td>
             <td><input type="text" name="SORT" value="<?=$ruleData['SORT']?>" size="5"></td>
         </tr>
-        <!-- Название -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_NAME')?> <span class="required">*</span>:</td>
             <td><input type="text" name="NAME" value="<?=htmlspecialcharsbx($ruleData['NAME'])?>" style="width:100%"></td>
         </tr>
-        <!-- Шаблон URL -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_URL_TEMPLATE')?> <span class="required">*</span>:<br><small><?=Loc::getMessage('MLK_DL_URL_TEMPLATE_HINT')?></small></td>
             <td><input type="text" name="URL_TEMPLATE" value="<?=htmlspecialcharsbx($ruleData['URL_TEMPLATE'])?>" style="width:100%"></td>
         </tr>
-        <!-- Маппинг плейсхолдеров -->
         <tr>
             <td valign="top"><?=Loc::getMessage('MLK_DL_PLACEHOLDER_MAPPING')?>:</td>
             <td>
@@ -278,7 +279,6 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
                 <button type="button" onclick="addMappingRow()"><?=Loc::getMessage('MLK_DL_ADD_PLACEHOLDER')?></button>
             </td>
         </tr>
-        <!-- Тип объекта -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_OBJECT_TYPE')?>:</td>
             <td>
@@ -288,7 +288,6 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
                 </select>
             </td>
         </tr>
-        <!-- Инфоблок -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_IBLOCK')?> <span class="required">*</span>:</td>
             <td>
@@ -303,20 +302,17 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
                 </select>
             </td>
         </tr>
-        <!-- Тип контента -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_RULE_CONTENT_TYPE')?> <span class="required">*</span>:</td>
             <td><input type="text" name="CONTENT_TYPE" value="<?=htmlspecialcharsbx($ruleData['CONTENT_TYPE'])?>" style="width:100%"></td>
         </tr>
-        <!-- Режим формирования диплинка -->
         <tr>
             <td><?=Loc::getMessage('MLK_DL_DEEPLINK_MODE')?>:</td>
             <td>
                 <label><input type="radio" name="DEEPLINK_MODE" value="auto" <?=($ruleData['DEEPLINK_MODE']=='auto'?'checked':'')?> onchange="toggleDeeplinkMode()"> <?=Loc::getMessage('MLK_DL_MODE_AUTO')?></label><br>
                 <label><input type="radio" name="DEEPLINK_MODE" value="manual" <?=($ruleData['DEEPLINK_MODE']=='manual'?'checked':'')?> onchange="toggleDeeplinkMode()"> <?=Loc::getMessage('MLK_DL_MODE_MANUAL')?></label>
-            </td>
+             </td>
         </tr>
-        <!-- Блок выбора поля/свойства (общий) -->
         <tbody id="source-block">
         <tr>
             <td id="source-label"><?=Loc::getMessage('MLK_DL_DEEPLINK_SOURCE_AUTO')?>:</td>
@@ -341,7 +337,6 @@ $tabControl = new CAdminTabControl('tabControl', $tabs);
             </td>
         </tr>
         </tbody>
-        <!-- Блок шаблона диплинка (ручной режим) -->
         <tbody id="manual-template-block" style="display:none;">
         <tr>
             <td valign="top"><?=Loc::getMessage('MLK_DL_DEEPLINK_TEMPLATE')?> <span class="required">*</span>:<br><small><?=Loc::getMessage('MLK_DL_DEEPLINK_TEMPLATE_HINT')?></small></td>
