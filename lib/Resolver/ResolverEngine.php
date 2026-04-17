@@ -63,20 +63,27 @@ class ResolverEngine
                 $this->debug['rules_checked'][$idx]['extracted'] = $values;
             }
 
-            $this->matchedRule = $rule;
-            $this->contentType = $rule->getContentType();
+            // Пытаемся получить диплинк
             $deeplinkResult = $this->fetchDeeplink($rule, $values, $debug);
 
             if ($deeplinkResult !== null) {
+                // Успешно нашли диплинк – запоминаем правило и результат
+                $this->matchedRule = $rule;
+                $this->contentType = $rule->getContentType();
                 $this->deeplink = $deeplinkResult;
                 break;
-            } elseif ($debug) {
-                $idx = count($this->debug['rules_checked']) - 1;
-                $this->debug['rules_checked'][$idx]['element_found'] = false;
+            } else {
+                // Шаблон совпал, но объект не найден или диплинк не получен – идём к следующему правилу
+                if ($debug) {
+                    $idx = count($this->debug['rules_checked']) - 1;
+                    $this->debug['rules_checked'][$idx]['element_found'] = false;
+                    $this->debug['rules_checked'][$idx]['deeplink_found'] = false;
+                }
+                continue;
             }
         }
 
-        if (!$this->matchedRule || $this->deeplink === null) {
+        if ($this->deeplink === null) {
             $error = 'No matching rule or deeplink not found';
             return ['success' => false, 'error' => $error, 'debug' => $debug ? $this->debug : null];
         }
@@ -128,12 +135,12 @@ class ResolverEngine
                 if (strpos($key, 'PROPERTY_') === 0) continue;
                 $sectionFilter[$key] = $value;
             }
-            // Делаем поиск по CODE регистронезависимым
+            // Точное совпадение по CODE (не LIKE)
             if (isset($sectionFilter['=CODE'])) {
-    $codeValue = $sectionFilter['=CODE'];
-    unset($sectionFilter['=CODE']);
-    $sectionFilter['CODE'] = $codeValue; // точное совпадение
-}
+                $codeValue = $sectionFilter['=CODE'];
+                unset($sectionFilter['=CODE']);
+                $sectionFilter['CODE'] = $codeValue;
+            }
             if ($debug) $this->debug['section_filter'] = $sectionFilter;
 
             $section = CIBlockSection::GetList(
@@ -177,6 +184,11 @@ class ResolverEngine
 
         // Ручной режим
         if ($mode === 'manual' && !empty($template)) {
+            // Если в шаблоне есть {source}, а sourceValue не получен – не можем сгенерировать диплинк
+            if (strpos($template, '{source}') !== false && $sourceValue === null) {
+                if ($debug) $this->debug['manual_source_missing'] = true;
+                return null;
+            }
             $replace = $values;
             $replace['element_id'] = $objectId;
             $replace['section_id'] = $objectId;
@@ -185,6 +197,11 @@ class ResolverEngine
             $deeplink = preg_replace_callback('/\{([a-zA-Z0-9_]+)\}/', function($m) use ($replace) {
                 return isset($replace[$m[1]]) ? (string)$replace[$m[1]] : $m[0];
             }, $template);
+            // Если после замены остались незамененные плейсхолдеры – считаем диплинк невалидным
+            if (preg_match('/\{[a-zA-Z0-9_]+\}/', $deeplink)) {
+                if ($debug) $this->debug['manual_unresolved_placeholders'] = true;
+                return null;
+            }
             if ($debug) {
                 $this->debug['deeplink_mode'] = 'manual';
                 $this->debug['deeplink_template'] = $template;
