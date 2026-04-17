@@ -24,9 +24,9 @@ class mlk_dlresolver extends CModule
     include __DIR__ . '/version.php';
     $this->MODULE_VERSION = $arModuleVersion['VERSION'];
     $this->MODULE_VERSION_DATE = $arModuleVersion['VERSION_DATE'];
-    $this->MODULE_NAME = "МЛК DeepLink Resolver";
+    $this->MODULE_NAME = "MLK DeepLink Resolver";
     $this->MODULE_DESCRIPTION = "Модуль для преобразования URL в диплинки";
-    $this->PARTNER_NAME = "mlk";
+    $this->PARTNER_NAME = "ООО «МЛК Интернет Технологии»";
     $this->PARTNER_URI = "https://www.mirlk.ru";
 }
 
