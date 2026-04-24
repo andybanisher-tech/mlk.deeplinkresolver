@@ -1,4 +1,5 @@
 <?php
+
 namespace Mlk\DlResolver\Api;
 
 use Bitrix\Main\HttpRequest;
@@ -29,11 +30,22 @@ class ResolverController
         $result = $engine->resolve($url, $debug);
 
         if (!$result['success']) {
-            return $this->error($response, $result['error'], 404, $debug, $result['debug'] ?? null);
+            $errorMsg = $result['error'] ?? 'No matching rule or deeplink not found';
+            return $this->error($response, $errorMsg, 404, $debug, $result['debug'] ?? null);
         }
 
-        $responseData = ['success' => true, 'content_type' => $result['content_type'], 'deeplink' => $result['deeplink']];
-        if ($debug && isset($result['debug'])) $responseData['debug'] = $result['debug'];
+        $responseData = [
+            'status' => 'success',
+            'data' => [
+                'content_type' => $result['content_type'],
+                'deeplink' => $result['deeplink']
+            ]
+        ];
+
+        if ($debug && isset($result['debug'])) {
+            $responseData['debug'] = $result['debug'];
+        }
+
         $response->setContent(Json::encode($responseData));
         return $response;
     }
@@ -41,10 +53,14 @@ class ResolverController
     protected function error(HttpResponse $response, string $message, int $code, bool $debug = false, ?array $debugData = null): HttpResponse
     {
         $response->setStatus($code);
-        $data = ['success' => false, 'error' => $message];
-        if ($debug && $debugData !== null) $data['debug'] = $debugData;
+        $data = [
+            'status' => 'error',
+            'message' => $message
+        ];
+        if ($debug && $debugData !== null) {
+            $data['debug'] = $debugData;
+        }
         $response->setContent(Json::encode($data));
         return $response;
     }
 }
-?>
