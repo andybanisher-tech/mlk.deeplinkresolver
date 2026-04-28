@@ -1,4 +1,5 @@
 <?php
+
 namespace Mlk\DlResolver\Resolver;
 
 class Rule
@@ -16,18 +17,54 @@ class Rule
         return $row ? new self($row) : null;
     }
 
-    public function getId() { return $this->data['ID']; }
-    public function getActive() { return $this->data['ACTIVE']; }
-    public function getSort() { return $this->data['SORT']; }
-    public function getName() { return $this->data['NAME']; }
-    public function getUrlTemplate() { return $this->data['URL_TEMPLATE'] ?? ''; }
-    public function getObjectType() { return $this->data['OBJECT_TYPE']; }
-    public function getIblockId() { return $this->data['IBLOCK_ID']; }
-    public function getContentType() { return $this->data['CONTENT_TYPE']; }
-    public function getDeeplinkMode() { return $this->data['DEEPLINK_MODE'] ?? 'auto'; }
-    public function getDeeplinkSource() { return $this->data['DEEPLINK_SOURCE']; }
-    public function getDeeplinkCode() { return $this->data['DEEPLINK_CODE'] ?? ''; }
-    public function getDeeplinkTemplate() { return $this->data['DEEPLINK_TEMPLATE'] ?? null; }
+    public function getId()
+    {
+        return $this->data['ID'];
+    }
+    public function getActive()
+    {
+        return $this->data['ACTIVE'];
+    }
+    public function getSort()
+    {
+        return $this->data['SORT'];
+    }
+    public function getName()
+    {
+        return $this->data['NAME'];
+    }
+    public function getUrlTemplate()
+    {
+        return $this->data['URL_TEMPLATE'] ?? '';
+    }
+    public function getObjectType()
+    {
+        return $this->data['OBJECT_TYPE'];
+    }
+    public function getIblockId()
+    {
+        return $this->data['IBLOCK_ID'];
+    }
+    public function getContentType()
+    {
+        return $this->data['CONTENT_TYPE'];
+    }
+    public function getDeeplinkMode()
+    {
+        return $this->data['DEEPLINK_MODE'] ?? 'auto';
+    }
+    public function getDeeplinkSource()
+    {
+        return $this->data['DEEPLINK_SOURCE'];
+    }
+    public function getDeeplinkCode()
+    {
+        return $this->data['DEEPLINK_CODE'] ?? '';
+    }
+    public function getDeeplinkTemplate()
+    {
+        return $this->data['DEEPLINK_TEMPLATE'] ?? null;
+    }
     public function getPlaceholderMapping(): array
     {
         $mapping = $this->data['PLACEHOLDER_MAPPING'] ?? '{}';
@@ -37,7 +74,7 @@ class Rule
 
     /**
      * Извлекает значения плейсхолдеров из URL по шаблону.
-     * Поддерживает {*} – любая последовательность символов.
+     * Поддерживает {*} – любая последовательность символов (включая пустую).
      */
     public function extractValuesFromUrl(string $url): ?array
     {
@@ -46,16 +83,18 @@ class Rule
             return null;
         }
 
-        // Разбиваем на текст и плейсхолдеры
+        // Разбиваем на части: текст и плейсхолдеры
         $parts = preg_split('/\{([a-zA-Z0-9_*]+)\}/', $template, -1, PREG_SPLIT_DELIM_CAPTURE);
         $pattern = '';
         $i = 0;
         foreach ($parts as $part) {
             if ($i % 2 == 0) {
+                // Обычный текст – экранируем
                 $pattern .= preg_quote($part, '/');
             } else {
+                // Плейсхолдер
                 if ($part === '*') {
-                    $pattern .= '(.*)';
+                    $pattern .= '(.*)'; // захватывает всё, включая пустую строку
                 } else {
                     $pattern .= '(?P<' . $part . '>[^/]+)';
                 }
@@ -67,8 +106,11 @@ class Rule
         if (preg_match($pattern, $url, $matches)) {
             $result = [];
             foreach ($this->getPlaceholderMapping() as $placeholder => $fieldCode) {
-                if (isset($matches[$placeholder])) {
-                    $result[$placeholder] = urldecode($matches[$placeholder]);
+                $key = ($placeholder === '*') ? 'star' : $placeholder;
+                if (isset($matches[$key])) {
+                    $result[$placeholder] = urldecode($matches[$key]);
+                } elseif ($placeholder === '*' && isset($matches['star'])) {
+                    $result[$placeholder] = urldecode($matches['star']);
                 }
             }
             return $result;
